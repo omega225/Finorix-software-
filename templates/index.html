@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0b0e14; color: #d1d4dc; font-family: sans-serif; overflow: hidden; }
+        .chart-box { background: #131722; height: 65vh; border-bottom: 1px solid #2a2e39; position: relative; }
+        select { background: #1e222d; color: #fff; border: 1px solid #363c4e; padding: 6px; font-size: 12px; border-radius: 4px; }
+        .price-line { position: absolute; left: 0; width: 100%; border-top: 1px dashed rgba(255,255,255,0.2); z-index: 5; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- HEADER -->
+    <div class="p-4 bg-[#131722] flex justify-between items-center border-b border-[#2a2e39]">
+        <select id="asset" onchange="sync()">
+            <option value="EURUSD=X">EUR/USD OTC</option>
+            <option value="GBPUSD=X">GBP/USD OTC</option>
+            <option value="USDJPY=X">USD/JPY OTC</option>
+            <option value="AUDUSD=X">AUD/USD OTC</option>
+            <option value="USDCAD=X">USD/CAD OTC</option>
+            <option value="EURJPY=X">EUR/JPY OTC</option>
+            <option value="GBPJPY=X">GBP/JPY OTC</option>
+        </select>
+        <div class="text-right">
+            <div id="price" class="text-xl font-bold font-mono text-white">0.00000</div>
+            <div class="text-[9px] text-green-500 font-bold uppercase">Future Logic: Online</div>
+        </div>
+    </div>
+
+    <!-- MAIN CHART AREA -->
+    <div class="chart-box">
+        <div id="priceLine" class="price-line"></div>
+        <canvas id="chartCanvas"></canvas>
+        <div id="loader" class="absolute inset-0 flex items-center justify-center bg-[#131722] text-[10px] z-50">SYNCING VECTOR FORCE...</div>
+    </div>
+
+    <!-- PREDICTION BUTTONS -->
+    <div class="flex-grow bg-[#1e222d] p-4 grid grid-cols-3 gap-3 text-center">
+        <div class="bg-black/20 p-2 border border-white/5 rounded">
+            <div class="text-[8px] opacity-40 mb-1">CANDLE +1</div>
+            <div id="s1" class="font-bold text-lg italic">--</div>
+        </div>
+        <div class="bg-black/20 p-2 border border-white/5 rounded">
+            <div class="text-[8px] opacity-40 mb-1">CANDLE +2</div>
+            <div id="s2" class="font-bold text-lg italic">--</div>
+        </div>
+        <div class="bg-black/20 p-2 border border-white/5 rounded">
+            <div class="text-[8px] opacity-40 mb-1">CANDLE +3</div>
+            <div id="s3" class="font-bold text-lg italic">--</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('chartCanvas');
+        const ctx = canvas.getContext('2d');
+
+        async function sync() {
+            const pair = document.getElementById('asset').value;
+            try {
+                const res = await fetch(`/api/data/${pair}`);
+                const data = await res.json();
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('price').innerText = data.price.toFixed(5);
+                draw(data);
+            } catch (e) { console.error("Sync Error"); }
+        }
+
+        function draw(data) {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const midY = canvas.height / 2;
+            const candleW = 35;
+            const gap = 8;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // AUTO-SCALING to ensure candles are visible
+            const scale = (canvas.height * 0.35) / (Math.abs(data.history[0].c - data.history[0].o) || 0.0001);
+
+            // Position PriceLine
+            document.getElementById('priceLine').style.top = midY + "px";
+
+            // Draw History (Past Candles)
+            data.history.forEach((c, i) => {
+                const x = 20 + (i * (candleW + gap));
+                drawCandle(x, c, data.price, scale, midY, false);
+            });
+
+            // Draw Future (Projected Candles)
+            data.future.forEach((c, i) => {
+                const x = 20 + ((data.history.length + i) * (candleW + gap));
+                const isUp = c.c > c.o;
+                const color = isUp ? "#26a69a" : "#ef5350";
+                
+                drawCandle(x, c, data.price, scale, midY, true);
+                
+                // Update prediction bar
+                document.getElementById(`s${i+1}`).innerText = isUp ? "CALL 🟩" : "PUT 🟥";
+                document.getElementById(`s${i+1}`).style.color = color;
+            });
+        }
+
+        function drawCandle(x, c, current, scale, midY, isFuture) {
+            const isUp = c.c > c.o;
+            const color = isUp ? "#26a69a" : "#ef5350";
+            
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = isFuture ? 0.9 : 0.5; // Future candles are brighter
+
+            // Wick
+            ctx.beginPath();
+            ctx.moveTo(x + (35/2), midY - (c.h - current) * scale);
+            ctx.lineTo(x + (35/2), midY - (c.l - current) * scale);
+            ctx.stroke();
+
+            // Body
+            const bodyH = (c.o - c.c) * scale;
+            ctx.fillRect(x, midY - (c.o - current) * scale, 35, bodyH || 2);
+            ctx.globalAlpha = 1.0;
+        }
+
+        setInterval(sync, 3000); // Live sync every 3s
+        sync();
+    </script>
+</body>
+              </html>

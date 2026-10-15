@@ -8,7 +8,7 @@ import os
 #      DIRECT PASTE SETTINGS (V11)
 # ==========================================
 API_TOKEN = '8987915786:AAHJixP0xg7TwBMBzgNvVGz8lhBP07csUfA'
-WEBAPP_URL = 'PASTE_YOUR_RENDER_URL_HERE' # e.g. https://my-bot.onrender.com
+WEBAPP_URL = 'https://finorix-software.onrender.com' # e.g. https://my-bot.onrender.com
 # ==========================================
 
 bot = telebot.TeleBot(API_TOKEN)
